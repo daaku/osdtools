@@ -106,7 +106,9 @@ func sendPct(socketPath string, pct int) error {
 
 func startServer(socketPath string) (chan int, net.Listener, error) {
 	pct := make(chan int)
-	rpc.Register(&ImageBarServer{pct: pct})
+	if err := rpc.Register(&ImageBarServer{pct: pct}); err != nil {
+		return nil, nil, errors.WithStack(err)
+	}
 	lis, err := net.Listen("unix", socketPath)
 	if err != nil {
 		return nil, nil, errors.WithStack(err)
