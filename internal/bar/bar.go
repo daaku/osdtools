@@ -56,7 +56,7 @@ func Render(icon image.Image, pct int) (*image.RGBA, error) {
 
 	imgBounds := img.Bounds()
 	iconR := iconBounds.Add(image.Pt((imgBounds.Dx()-iconBounds.Dx())/2, lineHeight/2))
-	draw.DrawMask(img, iconR, image.White, image.ZP, icon, image.ZP, draw.Over)
+	draw.DrawMask(img, iconR, image.White, image.Point{}, icon, image.Point{}, draw.Over)
 
 	fontDrawer := &font.Drawer{
 		Dst:  img,
@@ -68,10 +68,10 @@ func Render(icon image.Image, pct int) (*image.RGBA, error) {
 	barOffset := 20
 	gray := image.NewUniform(color.Gray16{0x9999})
 	barRect := image.Rect(barOffset, height-barOffset-barHeight, width-barOffset, height-barOffset)
-	draw.Draw(img, barRect, gray, image.ZP, draw.Over)
+	draw.Draw(img, barRect, gray, image.Point{}, draw.Over)
 	filledWidth := barOffset + int(barRect.Dx()*pct/100)
 	barRect = image.Rect(barOffset, height-barOffset-barHeight, filledWidth, height-barOffset)
-	draw.Draw(img, barRect, image.White, image.ZP, draw.Over)
+	draw.Draw(img, barRect, image.White, image.Point{}, draw.Over)
 
 	pctStr := fmt.Sprint(pct)
 	pctOffset := 10
