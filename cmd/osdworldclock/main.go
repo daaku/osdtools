@@ -6,16 +6,15 @@ import (
 	"fmt"
 	"image"
 	"image/draw"
-	"io/ioutil"
 	"os"
 	"strings"
 	"time"
 
-	"github.com/BurntSushi/xgb"
-	"github.com/BurntSushi/xgbutil"
 	"github.com/daaku/osdtools/internal/imagewindow"
 	fontloader "github.com/fxkr/go-freetype-fontloader"
 	"github.com/golang/freetype/truetype"
+	"github.com/gotk3/gotk3/glib"
+	"github.com/gotk3/gotk3/gtk"
 	"github.com/pkg/errors"
 	"golang.org/x/image/font"
 	"golang.org/x/image/math/fixed"
@@ -46,10 +45,11 @@ func worldclock() error {
 	lineHeight := face.Metrics().Height.Round()
 	height := (lineHeight * 3) + face.Metrics().Descent.Round() + logoBounds.Dy() + 8
 	img := image.NewRGBA(image.Rect(0, 0, width, height))
+	draw.Draw(img, img.Bounds(), image.Black, image.Point{}, draw.Over)
 
 	imgBounds := img.Bounds()
 	logoR := logoBounds.Add(image.Pt((imgBounds.Dx()-logoBounds.Dx())/2, lineHeight/2))
-	draw.DrawMask(img, logoR, image.White, image.ZP, logoImg, image.ZP, draw.Over)
+	draw.DrawMask(img, logoR, image.White, image.Point{}, logoImg, image.Point{}, draw.Over)
 
 	fontDrawer := &font.Drawer{
 		Dst:  img,
@@ -78,23 +78,36 @@ func worldclock() error {
 		}
 	}
 
-	iw, err := imagewindow.New()
+	app, err := gtk.ApplicationNew("org.daaku.osdworldclock", glib.APPLICATION_FLAGS_NONE)
 	if err != nil {
-		return err
+		return errors.WithStack(err)
 	}
-	defer iw.Destroy()
-	iw.SetOpacity(0.7)
-	if err := iw.Draw(img); err != nil {
-		return err
+	_, err = app.Connect("activate", func() {
+		win, err := imagewindow.NewImageWindow(app, img)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%+v\n", err)
+			os.Exit(1)
+		}
+		win.SetOpacity(0.7)
+		win.SetTitle("World Clock")
+		win.ShowAll()
+	})
+	if err != nil {
+		return errors.WithStack(err)
 	}
-	time.Sleep(5 * time.Second)
+
+	go func() {
+		time.Sleep(5 * time.Second)
+		_, _ = glib.IdleAdd(func() {
+			app.Quit()
+		})
+	}()
+
+	app.Run(os.Args)
 	return nil
 }
 
 func main() {
-	xgb.Logger.SetOutput(ioutil.Discard)
-	xgbutil.Logger.SetOutput(ioutil.Discard)
-
 	if err := worldclock(); err != nil {
 		fmt.Fprintf(os.Stderr, "%+v\n", err)
 		os.Exit(1)

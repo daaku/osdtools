@@ -2,14 +2,18 @@
 package imagewindow
 
 import (
+	"bytes"
 	"image"
 	"image/draw"
+	"image/png"
 
 	"github.com/BurntSushi/xgb/xproto"
 	"github.com/BurntSushi/xgbutil"
 	"github.com/BurntSushi/xgbutil/ewmh"
 	"github.com/BurntSushi/xgbutil/xgraphics"
 	"github.com/BurntSushi/xgbutil/xwindow"
+	"github.com/gotk3/gotk3/gdk"
+	"github.com/gotk3/gotk3/gtk"
 	"github.com/pkg/errors"
 )
 
@@ -73,4 +77,36 @@ func New() (*ImageWindow, error) {
 		Window:     win,
 		ScreenSize: image.Pt(int(screen.WidthInPixels), int(screen.HeightInPixels)),
 	}, nil
+}
+
+var pngEncoder = png.Encoder{
+	CompressionLevel: png.BestSpeed,
+}
+
+func NewImageWindow(app *gtk.Application, img image.Image) (*gtk.ApplicationWindow, error) {
+	win, err := gtk.ApplicationWindowNew(app)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+	size := img.Bounds()
+	win.SetDefaultSize(size.Max.X, size.Min.Y)
+
+	var buf bytes.Buffer
+	if err := pngEncoder.Encode(&buf, img); err != nil {
+		return nil, errors.WithStack(err)
+	}
+	loader, err := gdk.PixbufLoaderNewWithType("png")
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+	pixbuf, err := loader.WriteAndReturnPixbuf(buf.Bytes())
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+	imgview, err := gtk.ImageNewFromPixbuf(pixbuf)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+	win.Add(imgview)
+	return win, nil
 }
