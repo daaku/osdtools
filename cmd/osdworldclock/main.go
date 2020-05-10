@@ -78,30 +78,33 @@ func worldclock() error {
 		}
 	}
 
-	app, err := gtk.ApplicationNew("org.daaku.osdworldclock", glib.APPLICATION_FLAGS_NONE)
+	gtk.Init(nil)
+	win, err := gtk.WindowNew(gtk.WINDOW_TOPLEVEL)
 	if err != nil {
 		return errors.WithStack(err)
 	}
-	_, err = app.Connect("activate", func() {
-		win, _, err := imagewindow.NewImageWindow(app, img)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "%+v\n", err)
-			os.Exit(1)
-		}
-		win.SetOpacity(0.7)
-		win.SetTitle("World Clock")
-		win.ShowAll()
-	})
+	win.SetOpacity(0.7)
+	win.SetTitle("World Clock")
+	size := img.Bounds()
+	win.SetDefaultSize(size.Max.X, size.Min.Y)
+
+	pixbuf, err := imagewindow.ImageToPixbuf(img)
 	if err != nil {
 		return errors.WithStack(err)
 	}
+	imgview, err := gtk.ImageNewFromPixbuf(pixbuf)
+	if err != nil {
+		return errors.WithStack(err)
+	}
+	win.Add(imgview)
+	win.ShowAll()
 
 	go func() {
 		time.Sleep(5 * time.Second)
-		_, _ = glib.IdleAdd(app.Quit)
+		_, _ = glib.IdleAdd(gtk.MainQuit)
 	}()
 
-	app.Run(os.Args)
+	gtk.Main()
 	return nil
 }
 

@@ -135,33 +135,33 @@ func Run(pct int, render func(int) (*image.RGBA, error), socketName string) erro
 		return err
 	}
 
-	appID := fmt.Sprintf("org.daaku%s", socketName)
-	app, err := gtk.ApplicationNew(appID, glib.APPLICATION_FLAGS_NONE)
+	gtk.Init(nil)
+	win, err := gtk.WindowNew(gtk.WINDOW_TOPLEVEL)
 	if err != nil {
 		return errors.WithStack(err)
 	}
-	var imgview *gtk.Image
-	_, err = app.Connect("activate", func() {
-		win, imgview_, err := imagewindow.NewImageWindow(app, img)
-		imgview = imgview_
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "%+v\n", err)
-			os.Exit(1)
-		}
-		win.SetOpacity(0.7)
-		win.SetTitle("OSD")
-		win.ShowAll()
-	})
+	win.SetOpacity(0.7)
+	win.SetTitle("OSD")
+	size := img.Bounds()
+	win.SetDefaultSize(size.Max.X, size.Min.Y)
+
+	pixbuf, err := imagewindow.ImageToPixbuf(img)
 	if err != nil {
 		return errors.WithStack(err)
 	}
+	imgview, err := gtk.ImageNewFromPixbuf(pixbuf)
+	if err != nil {
+		return errors.WithStack(err)
+	}
+	win.Add(imgview)
+	win.ShowAll()
 
 	go func() {
 		quitter := time.NewTimer(timeout)
 		for {
 			select {
 			case <-quitter.C:
-				_, _ = glib.IdleAdd(app.Quit)
+				_, _ = glib.IdleAdd(gtk.MainQuit)
 				break
 			case pct := <-pctCh:
 				quitter.Reset(timeout)
@@ -178,7 +178,6 @@ func Run(pct int, render func(int) (*image.RGBA, error), socketName string) erro
 		}
 	}()
 
-	app.Run(nil)
+	gtk.Main()
 	return nil
-
 }
