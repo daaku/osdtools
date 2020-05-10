@@ -15,6 +15,8 @@ import (
 	"github.com/daaku/osdtools/internal/imagewindow"
 	fontloader "github.com/fxkr/go-freetype-fontloader"
 	"github.com/golang/freetype/truetype"
+	"github.com/gotk3/gotk3/glib"
+	"github.com/gotk3/gotk3/gtk"
 	"github.com/pkg/errors"
 	"golang.org/x/image/font"
 	"golang.org/x/image/math/fixed"
@@ -50,6 +52,7 @@ func Render(icon image.Image, pct int) (*image.RGBA, error) {
 	height := (lineHeight * 3) + face.Metrics().Descent.Round() + iconBounds.Dy() + 8
 	width := height
 	img := image.NewRGBA(image.Rect(0, 0, width, height))
+	draw.Draw(img, img.Bounds(), image.Black, image.Point{}, draw.Over)
 
 	imgBounds := img.Bounds()
 	iconR := iconBounds.Add(image.Pt((imgBounds.Dx()-iconBounds.Dx())/2, lineHeight/2))
@@ -127,36 +130,57 @@ func Run(pct int, render func(int) (*image.RGBA, error), socketName string) erro
 	}
 	defer lis.Close()
 
-	w, err := imagewindow.New()
-	if err != nil {
-		return err
-	}
-	defer w.Destroy()
-	w.SetOpacity(0.7)
-
 	img, err := render(pct)
 	if err != nil {
 		return err
 	}
-	if err := w.Draw(img); err != nil {
-		return err
+
+	appID := fmt.Sprintf("org.daaku%s", socketName)
+	app, err := gtk.ApplicationNew(appID, glib.APPLICATION_FLAGS_NONE)
+	if err != nil {
+		return errors.WithStack(err)
+	}
+	var imgview *gtk.Image
+	_, err = app.Connect("activate", func() {
+		win, imgview_, err := imagewindow.NewImageWindow(app, img)
+		imgview = imgview_
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%+v\n", err)
+			os.Exit(1)
+		}
+		win.SetOpacity(0.7)
+		win.SetTitle("OSD")
+		win.ShowAll()
+	})
+	if err != nil {
+		return errors.WithStack(err)
 	}
 
-	quitter := time.NewTimer(timeout)
-
-	for {
-		select {
-		case <-quitter.C:
-			return nil
-		case pct := <-pctCh:
-			quitter.Reset(timeout)
-			img, err := render(pct)
-			if err != nil {
-				return err
-			}
-			if err := w.Draw(img); err != nil {
-				return err
+	go func() {
+		quitter := time.NewTimer(timeout)
+		for {
+			select {
+			case <-quitter.C:
+				_, _ = glib.IdleAdd(func() {
+					app.Quit()
+				})
+				break
+			case pct := <-pctCh:
+				quitter.Reset(timeout)
+				img, err := render(pct)
+				if err != nil {
+					panic(err)
+				}
+				pixbuf, err := imagewindow.ImageToPixbuf(img)
+				if err != nil {
+					panic(err)
+				}
+				imgview.SetFromPixbuf(pixbuf)
 			}
 		}
-	}
+	}()
+
+	app.Run(nil)
+	return nil
+
 }

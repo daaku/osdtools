@@ -83,14 +83,7 @@ var pngEncoder = png.Encoder{
 	CompressionLevel: png.BestSpeed,
 }
 
-func NewImageWindow(app *gtk.Application, img image.Image) (*gtk.ApplicationWindow, error) {
-	win, err := gtk.ApplicationWindowNew(app)
-	if err != nil {
-		return nil, errors.WithStack(err)
-	}
-	size := img.Bounds()
-	win.SetDefaultSize(size.Max.X, size.Min.Y)
-
+func ImageToPixbuf(img image.Image) (*gdk.Pixbuf, error) {
 	var buf bytes.Buffer
 	if err := pngEncoder.Encode(&buf, img); err != nil {
 		return nil, errors.WithStack(err)
@@ -103,10 +96,25 @@ func NewImageWindow(app *gtk.Application, img image.Image) (*gtk.ApplicationWind
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
+	return pixbuf, nil
+}
+
+func NewImageWindow(app *gtk.Application, img image.Image) (*gtk.ApplicationWindow, *gtk.Image, error) {
+	win, err := gtk.ApplicationWindowNew(app)
+	if err != nil {
+		return nil, nil, errors.WithStack(err)
+	}
+	size := img.Bounds()
+	win.SetDefaultSize(size.Max.X, size.Min.Y)
+
+	pixbuf, err := ImageToPixbuf(img)
+	if err != nil {
+		return nil, nil, errors.WithStack(err)
+	}
 	imgview, err := gtk.ImageNewFromPixbuf(pixbuf)
 	if err != nil {
-		return nil, errors.WithStack(err)
+		return nil, nil, errors.WithStack(err)
 	}
 	win.Add(imgview)
-	return win, nil
+	return win, imgview, nil
 }

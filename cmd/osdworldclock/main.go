@@ -83,7 +83,7 @@ func worldclock() error {
 		return errors.WithStack(err)
 	}
 	_, err = app.Connect("activate", func() {
-		win, err := imagewindow.NewImageWindow(app, img)
+		win, _, err := imagewindow.NewImageWindow(app, img)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%+v\n", err)
 			os.Exit(1)
