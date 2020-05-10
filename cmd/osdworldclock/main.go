@@ -98,9 +98,7 @@ func worldclock() error {
 
 	go func() {
 		time.Sleep(5 * time.Second)
-		_, _ = glib.IdleAdd(func() {
-			app.Quit()
-		})
+		_, _ = glib.IdleAdd(app.Quit)
 	}()
 
 	app.Run(os.Args)

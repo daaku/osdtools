@@ -161,9 +161,7 @@ func Run(pct int, render func(int) (*image.RGBA, error), socketName string) erro
 		for {
 			select {
 			case <-quitter.C:
-				_, _ = glib.IdleAdd(func() {
-					app.Quit()
-				})
+				_, _ = glib.IdleAdd(app.Quit)
 				break
 			case pct := <-pctCh:
 				quitter.Reset(timeout)
