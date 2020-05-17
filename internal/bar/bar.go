@@ -52,7 +52,6 @@ func Render(icon image.Image, pct int) (*image.RGBA, error) {
 	height := (lineHeight * 3) + face.Metrics().Descent.Round() + iconBounds.Dy() + 8
 	width := height
 	img := image.NewRGBA(image.Rect(0, 0, width, height))
-	draw.Draw(img, img.Bounds(), image.Black, image.Point{}, draw.Over)
 
 	imgBounds := img.Bounds()
 	iconR := iconBounds.Add(image.Pt((imgBounds.Dx()-iconBounds.Dx())/2, lineHeight/2))
@@ -138,11 +137,15 @@ func Run(pct int, render func(int) (*image.RGBA, error), socketName string) erro
 	}
 
 	gtk.Init(nil)
+
+	if err := imagewindow.ConfigureDefaultStyles(); err != nil {
+		return err
+	}
+
 	win, err := gtk.WindowNew(gtk.WINDOW_TOPLEVEL)
 	if err != nil {
 		return errors.WithStack(err)
 	}
-	win.SetOpacity(0.7)
 	win.SetTitle("OSD")
 	size := img.Bounds()
 	win.SetDefaultSize(size.Max.X, size.Min.Y)
