@@ -147,6 +147,8 @@ func Run(pct int, render func(int) (*image.RGBA, error), socketName string) erro
 		return errors.WithStack(err)
 	}
 	win.SetTitle("OSD")
+	imagewindow.LayerInit(win)
+	imagewindow.LayerSetOverlay(win)
 	size := img.Bounds()
 	win.SetDefaultSize(size.Max.X, size.Min.Y)
 

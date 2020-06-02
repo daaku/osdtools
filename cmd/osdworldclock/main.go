@@ -88,6 +88,8 @@ func worldclock() error {
 		return errors.WithStack(err)
 	}
 	win.SetTitle("World Clock")
+	imagewindow.LayerInit(win)
+	imagewindow.LayerSetOverlay(win)
 	size := img.Bounds()
 	win.SetDefaultSize(size.Max.X, size.Min.Y)
 
