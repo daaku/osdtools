@@ -5,9 +5,9 @@ These are some tools that provide OSD functionality for volume and brightness.
 
 Here is what they look like:
 
-![Volume](screenshots/volume.jpg =321x321)
-![Mute](screenshots/mute.jpg =304x304)
-![Brightness](screenshots/brightness.jpg =319x319)
+<img src="screenshots/volume.jpg" width="321">
+<img src="screenshots/mute.jpg" width="304">
+<img src="screenshots/brightness.jpg" width="319">
 
 They are written in Go, using GTK, and are built with Wayland in mind.
 Compiling them takes a while, and the binaries are big. You have been warned.
