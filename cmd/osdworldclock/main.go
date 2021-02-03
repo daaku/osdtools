@@ -132,7 +132,7 @@ func worldclock() error {
 	win.ShowAll()
 
 	go func() {
-		time.Sleep(4 * time.Second)
+		time.Sleep(5 * time.Second)
 		_, _ = glib.IdleAdd(gtk.MainQuit)
 	}()
 
