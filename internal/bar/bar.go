@@ -25,6 +25,7 @@ window {
 .progress trough,
 .progress trough progress {
 	min-height: 20px;
+	border-radius: 0;
 }
 .progress trough progress {
 	min-height: 20px;
