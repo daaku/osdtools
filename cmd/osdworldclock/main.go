@@ -1,24 +1,41 @@
 package main
 
-//go:generate stringvar -out assets.go -pkg main globeImgFile:globe.png
-
 import (
 	"fmt"
-	"image"
-	"image/draw"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/daaku/osdtools/internal/imagewindow"
-	fontloader "github.com/fxkr/go-freetype-fontloader"
-	"github.com/golang/freetype/truetype"
 	"github.com/gotk3/gotk3/glib"
 	"github.com/gotk3/gotk3/gtk"
 	"github.com/pkg/errors"
-	"golang.org/x/image/font"
-	"golang.org/x/image/math/fixed"
 )
+
+const styles = `
+window {
+	background: rgba(5%, 5%, 5%, 0.75);
+}
+.icon {
+	font-size: 128px;
+	padding-top: 16px;
+}
+.city {
+	padding-right: 24px;
+}
+.city label {
+	font-weight: bold;
+	color: rgba(255, 255, 255, 1);
+	padding-left: 16px;
+	padding-right: 16px;
+}
+.city .name {
+	font-size: 32px;
+}
+.city .time {
+	font-size: 24px;
+	padding-bottom: 16px;
+}
+`
 
 func timein(t time.Time, location string) string {
 	l, err := time.LoadLocation(location)
@@ -28,36 +45,38 @@ func timein(t time.Time, location string) string {
 	return t.In(l).Format("3:04pm")
 }
 
+func cityTimeBox(city, time string) (*gtk.Box, error) {
+	vbox, err := gtk.BoxNew(gtk.ORIENTATION_VERTICAL, 0)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+	if err := imagewindow.AddClass(vbox, "city"); err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	cityLabel, err := gtk.LabelNew(city)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+	if err := imagewindow.AddClass(cityLabel, "name"); err != nil {
+		return nil, errors.WithStack(err)
+	}
+	vbox.Add(cityLabel)
+
+	timeLabel, err := gtk.LabelNew(time)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+	if err := imagewindow.AddClass(timeLabel, "time"); err != nil {
+		return nil, errors.WithStack(err)
+	}
+	vbox.Add(timeLabel)
+	return vbox, nil
+}
+
 func worldclock() error {
-	logoImg, _, err := image.Decode(strings.NewReader(globeImgFile))
-	if err != nil {
-		return errors.WithStack(err)
-	}
-	logoBounds := logoImg.Bounds()
-
-	const width = 2000
-	const fontSize = 48
-	sansFont, err := fontloader.LoadCache("Mono")
-	if err != nil {
-		return errors.WithStack(err)
-	}
-	face := truetype.NewFace(sansFont, &truetype.Options{Size: fontSize})
-	lineHeight := face.Metrics().Height.Round()
-	height := (lineHeight * 3) + face.Metrics().Descent.Round() + logoBounds.Dy() + 8
-	img := image.NewRGBA(image.Rect(0, 0, width, height))
-
-	imgBounds := img.Bounds()
-	logoR := logoBounds.Add(image.Pt((imgBounds.Dx()-logoBounds.Dx())/2, lineHeight/2))
-	draw.DrawMask(img, logoR, image.White, image.Point{}, logoImg, image.Point{}, draw.Over)
-
-	fontDrawer := &font.Drawer{
-		Dst:  img,
-		Src:  image.White,
-		Face: face,
-	}
-
 	now := time.Now()
-	clocks := [][]string{
+	clocks := [][2]string{
 		{"Mumbai", timein(now, "Asia/Kolkata")},
 		{"Antwerp", timein(now, "Europe/Brussels")},
 		{"Dubai", timein(now, "Asia/Dubai")},
@@ -66,20 +85,9 @@ func worldclock() error {
 		{"SF", timein(now, "America/Los_Angeles")},
 	}
 
-	sectionWidth := width / len(clocks)
-	for i, clock := range clocks {
-		y := int(lineHeight*2) + logoImg.Bounds().Dx()
-		for _, line := range clock {
-			lineWidth := fontDrawer.MeasureString(line).Round()
-			fontDrawer.Dot = fixed.P(((sectionWidth-lineWidth)/2)+(i*sectionWidth), y)
-			fontDrawer.DrawString(line)
-			y += lineHeight
-		}
-	}
-
 	gtk.Init(nil)
 
-	if err := imagewindow.ConfigureDefaultStyles(); err != nil {
+	if err := imagewindow.ConfigureDefaultScreenStyles(styles); err != nil {
 		return err
 	}
 
@@ -90,22 +98,40 @@ func worldclock() error {
 	win.SetTitle("World Clock")
 	imagewindow.LayerInit(win)
 	imagewindow.LayerSetOverlay(win)
-	size := img.Bounds()
-	win.SetDefaultSize(size.Max.X, size.Min.Y)
 
-	pixbuf, err := imagewindow.ImageToPixbuf(img)
+	vbox, err := gtk.BoxNew(gtk.ORIENTATION_VERTICAL, 0)
 	if err != nil {
 		return errors.WithStack(err)
 	}
-	imgview, err := gtk.ImageNewFromPixbuf(pixbuf)
+
+	emojiLabel, err := gtk.LabelNew("\U0001f557")
 	if err != nil {
 		return errors.WithStack(err)
 	}
-	win.Add(imgview)
+	if err := imagewindow.AddClass(emojiLabel, "icon"); err != nil {
+		return errors.WithStack(err)
+	}
+	vbox.Add(emojiLabel)
+
+	hbox, err := gtk.BoxNew(gtk.ORIENTATION_HORIZONTAL, 0)
+	if err != nil {
+		return errors.WithStack(err)
+	}
+
+	for _, clock := range clocks {
+		ctb, err := cityTimeBox(clock[0], clock[1])
+		if err != nil {
+			return err
+		}
+		hbox.Add(ctb)
+	}
+
+	vbox.Add(hbox)
+	win.Add(vbox)
 	win.ShowAll()
 
 	go func() {
-		time.Sleep(5 * time.Second)
+		time.Sleep(4 * time.Second)
 		_, _ = glib.IdleAdd(gtk.MainQuit)
 	}()
 

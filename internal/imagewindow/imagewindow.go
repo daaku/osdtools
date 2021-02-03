@@ -33,11 +33,28 @@ func ImageToPixbuf(img image.Image) (*gdk.Pixbuf, error) {
 
 const styles = `
 window {
-  background: rgba(5%, 5%, 5%, 0.6);
+	background: rgba(5%, 5%, 5%, 0.75);
+}
+#icon {
+	font-size: 128px;
+	padding-top: 16px;
+}
+.city-label, .time-label {
+	font-weight: bold;
+	color: rgba(255, 255, 255, 1);
+	padding-left: 16px;
+	padding-right: 16px;
+}
+.city-label {
+	font-size: 32px;
+}
+.time-label {
+	font-size: 24px;
+	padding-bottom: 16px;
 }
 `
 
-func ConfigureDefaultStyles() error {
+func ConfigureDefaultScreenStyles(styles string) error {
 	cssProvider, err := gtk.CssProviderNew()
 	if err != nil {
 		return errors.WithStack(err)
@@ -54,5 +71,22 @@ func ConfigureDefaultStyles() error {
 		return errors.WithStack(err)
 	}
 	gtk.AddProviderForScreen(screen, cssProvider, gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+	return nil
+}
+
+func ConfigureDefaultStyles() error {
+	return ConfigureDefaultScreenStyles(styles)
+}
+
+type StyleContext interface {
+	GetStyleContext() (*gtk.StyleContext, error)
+}
+
+func AddClass(w StyleContext, class string) error {
+	sc, err := w.GetStyleContext()
+	if err != nil {
+		return errors.WithStack(err)
+	}
+	sc.AddClass(class)
 	return nil
 }
