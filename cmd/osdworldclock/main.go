@@ -88,7 +88,7 @@ func worldclock() error {
 
 	gtk.Init(nil)
 
-	if err := imagewindow.ConfigureDefaultScreenStyles(styles); err != nil {
+	if err := imagewindow.ConfigureStyles(styles); err != nil {
 		return err
 	}
 

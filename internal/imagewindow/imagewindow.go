@@ -7,7 +7,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-func ConfigureDefaultScreenStyles(styles string) error {
+func ConfigureStyles(styles string) error {
 	cssProvider, err := gtk.CssProviderNew()
 	if err != nil {
 		return errors.WithStack(err)
