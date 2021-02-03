@@ -12,6 +12,9 @@ func icon(volume int) string {
 	if volume == 0 {
 		return "\U0001f507"
 	}
+	if volume < 40 {
+		return "\U0001f509"
+	}
 	return "\U0001f50a"
 }
 
