@@ -1,10 +1,6 @@
 package bar
 
 import (
-	"fmt"
-	"image"
-	"image/color"
-	"image/draw"
 	"net"
 	"net/rpc"
 	"os"
@@ -13,14 +9,27 @@ import (
 	"time"
 
 	"github.com/daaku/osdtools/internal/imagewindow"
-	fontloader "github.com/fxkr/go-freetype-fontloader"
-	"github.com/golang/freetype/truetype"
 	"github.com/gotk3/gotk3/glib"
 	"github.com/gotk3/gotk3/gtk"
 	"github.com/pkg/errors"
-	"golang.org/x/image/font"
-	"golang.org/x/image/math/fixed"
 )
+
+const styles = `
+window {
+	background: rgba(5%, 5%, 5%, 0.75);
+}
+.icon {
+	font-size: 128px;
+	padding: 16px;
+}
+.progress trough,
+.progress trough progress {
+	min-height: 20px;
+}
+.progress trough progress {
+	min-height: 20px;
+}
+`
 
 func socketPath(name string) string {
 	u, _ := user.Current()
@@ -32,53 +41,6 @@ func socketPath(name string) string {
 		home = u.HomeDir
 	}
 	return filepath.Join(home, name)
-}
-
-// Render renders an icon + percent + bar image.
-func Render(icon image.Image, pct int) (*image.RGBA, error) {
-	if pct < 0 || pct > 100 {
-		return nil, errors.New("value must be between 0-100")
-	}
-
-	iconBounds := icon.Bounds()
-
-	const fontSize = 24
-	sansFont, err := fontloader.LoadCache("Sans")
-	if err != nil {
-		return nil, errors.WithStack(err)
-	}
-	face := truetype.NewFace(sansFont, &truetype.Options{Size: fontSize})
-	lineHeight := face.Metrics().Height.Round()
-	height := (lineHeight * 3) + face.Metrics().Descent.Round() + iconBounds.Dy() + 8
-	width := height
-	img := image.NewRGBA(image.Rect(0, 0, width, height))
-
-	imgBounds := img.Bounds()
-	iconR := iconBounds.Add(image.Pt((imgBounds.Dx()-iconBounds.Dx())/2, lineHeight/2))
-	draw.DrawMask(img, iconR, image.White, image.Point{}, icon, image.Point{}, draw.Over)
-
-	fontDrawer := &font.Drawer{
-		Dst:  img,
-		Src:  image.White,
-		Face: face,
-	}
-
-	barHeight := 30
-	barOffset := 20
-	gray := image.NewUniform(color.Gray16{0x9999})
-	barRect := image.Rect(barOffset, height-barOffset-barHeight, width-barOffset, height-barOffset)
-	draw.Draw(img, barRect, gray, image.Point{}, draw.Over)
-	filledWidth := barOffset + int(barRect.Dx()*pct/100)
-	barRect = image.Rect(barOffset, height-barOffset-barHeight, filledWidth, height-barOffset)
-	draw.Draw(img, barRect, image.White, image.Point{}, draw.Over)
-
-	pctStr := fmt.Sprint(pct)
-	pctOffset := 10
-	pctWidth := fontDrawer.MeasureString(pctStr).Round()
-	fontDrawer.Dot = fixed.P((width-pctWidth)/2, barRect.Min.Y-pctOffset)
-	fontDrawer.DrawString(pctStr)
-
-	return img, nil
 }
 
 // ImageBarServer to handle RPC calls.
@@ -117,7 +79,7 @@ func startServer(socketPath string) (chan int, net.Listener, error) {
 }
 
 // Run a bar application.
-func Run(pct int, render func(int) (*image.RGBA, error), socketName string) error {
+func Run(pct int, icon func(int) string, socketName string) error {
 	const timeout = 5 * time.Second
 	socketPath := socketPath(socketName)
 
@@ -131,14 +93,9 @@ func Run(pct int, render func(int) (*image.RGBA, error), socketName string) erro
 	}
 	defer lis.Close()
 
-	img, err := render(pct)
-	if err != nil {
-		return err
-	}
-
 	gtk.Init(nil)
 
-	if err := imagewindow.ConfigureDefaultStyles(); err != nil {
+	if err := imagewindow.ConfigureDefaultScreenStyles(styles); err != nil {
 		return err
 	}
 
@@ -149,18 +106,32 @@ func Run(pct int, render func(int) (*image.RGBA, error), socketName string) erro
 	win.SetTitle("OSD")
 	imagewindow.LayerInit(win)
 	imagewindow.LayerSetOverlay(win)
-	size := img.Bounds()
-	win.SetDefaultSize(size.Max.X, size.Min.Y)
 
-	pixbuf, err := imagewindow.ImageToPixbuf(img)
+	vbox, err := gtk.BoxNew(gtk.ORIENTATION_VERTICAL, 0)
 	if err != nil {
 		return errors.WithStack(err)
 	}
-	imgview, err := gtk.ImageNewFromPixbuf(pixbuf)
+
+	iconLabel, err := gtk.LabelNew(icon(pct))
 	if err != nil {
 		return errors.WithStack(err)
 	}
-	win.Add(imgview)
+	if err := imagewindow.AddClass(iconLabel, "icon"); err != nil {
+		return err
+	}
+	vbox.Add(iconLabel)
+
+	progress, err := gtk.ProgressBarNew()
+	if err != nil {
+		return errors.WithStack(err)
+	}
+	progress.SetFraction(float64(pct) / 100)
+	if err := imagewindow.AddClass(progress, "progress"); err != nil {
+		return err
+	}
+	vbox.Add(progress)
+
+	win.Add(vbox)
 	win.ShowAll()
 
 	go func() {
@@ -172,15 +143,8 @@ func Run(pct int, render func(int) (*image.RGBA, error), socketName string) erro
 				break
 			case pct := <-pctCh:
 				quitter.Reset(timeout)
-				img, err := render(pct)
-				if err != nil {
-					panic(err)
-				}
-				pixbuf, err := imagewindow.ImageToPixbuf(img)
-				if err != nil {
-					panic(err)
-				}
-				imgview.SetFromPixbuf(pixbuf)
+				iconLabel.SetText(icon(pct))
+				progress.SetFraction(float64(pct) / 100)
 			}
 		}
 	}()

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/daaku/osdtools/internal/imagewindow"
+
 	"github.com/gotk3/gotk3/glib"
 	"github.com/gotk3/gotk3/gtk"
 	"github.com/pkg/errors"
