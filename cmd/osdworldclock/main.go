@@ -84,7 +84,6 @@ func worldclock() error {
 		{"London", timein(now, "Europe/London")},
 		{"NYC", timein(now, "America/New_York")},
 		{"SF", timein(now, "America/Los_Angeles")},
-		{"Kiev", timein(now, "Europe/Kiev")},
 	}
 
 	gtk.Init(nil)
